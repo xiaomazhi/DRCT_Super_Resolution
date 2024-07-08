@@ -15,30 +15,47 @@ def main():
         '--model_path',
         type=str,
         default=  # noqa: E251
-        "/work/u1657859/DRCT/experiments/train_DRCT-L_SRx4_finetune_from_ImageNet_pretrain/models/DRCT-L.pth"  # noqa: E501
+        "checkpoints/DRCT-L.pth"  # noqa: E501
     )
-    parser.add_argument('--input', type=str, default='datasets/Set14/LRbicx4', help='input test image folder')
-    parser.add_argument('--output', type=str, default='results/DRCT-L', help='output folder')
+    parser.add_argument('--input', type=str, default='datasets/onnx_inf', help='input test image folder')
+    parser.add_argument('--output', type=str, default='results/DRCT128', help='output folder')
     parser.add_argument('--scale', type=int, default=4, help='scale factor: 1, 2, 3, 4')
     #parser.add_argument('--window_size', type=int, default=16, help='16')
     
-    parser.add_argument('--tile', type=int, default=None, help='Tile size, None for no tile during testing (testing as a whole)')
+    parser.add_argument('--tile', type=int, default=128, help='Tile size, None for no tile during testing (testing as a whole)')
     parser.add_argument('--tile_overlap', type=int, default=32, help='Overlapping of different tiles')
     
     args = parser.parse_args()
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # set up model (DRCT-L)
-    model = DRCT(upscale=4, in_chans=3,  img_size= 64, window_size= 16, compress_ratio= 3,squeeze_factor= 30,
-                        conv_scale= 0.01, overlap_ratio= 0.5, img_range= 1., depths= [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
-                        embed_dim= 180, num_heads= [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6], gc= 32,
-                        mlp_ratio= 2, upsampler= 'pixelshuffle', resi_connection= '1conv')
-    
+    # model = DRCT(upscale=4, in_chans=3,  img_size= 64, window_size= 16, compress_ratio= 3,squeeze_factor= 30,
+    #                     conv_scale= 0.01, overlap_ratio= 0.5, img_range= 1., depths= [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
+    #                     embed_dim= 180, num_heads= [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6], gc= 32,
+    #                     mlp_ratio= 2, upsampler= 'pixelshuffle', resi_connection= '1conv')
+
+    # set up model (DRCT)
+    model = DRCT(upscale=4,
+                 in_chans=3,
+                img_size=64,
+                window_size=16,
+                compress_ratio=3,
+                squeeze_factor=30,
+                conv_scale=0.01,
+                overlap_ratio=0.5,
+                img_range=1.,
+                depths=[6, 6, 6, 6, 6, 6],
+                embed_dim=180,
+                num_heads=[6, 6, 6, 6, 6, 6],
+                mlp_ratio= 2,
+                upsampler= 'pixelshuffle',
+                resi_connection= '1conv')
+
     model.load_state_dict(torch.load(args.model_path)['params'], strict=True)
     model.eval()
     model = model.to(device)
     
-    print(model)
+    # print(model)
     
     window_size = 16
     
@@ -72,7 +89,7 @@ def main():
             output = output.data.squeeze().float().cpu().clamp_(0, 1).numpy()
             output = np.transpose(output[[2, 1, 0], :, :], (1, 2, 0))
             output = (output * 255.0).round().astype(np.uint8)
-            cv2.imwrite(os.path.join(args.output, f'{imgname}_DRCT-L_X4.png'), output)
+            cv2.imwrite(os.path.join(args.output, f'{imgname}.png'), output)
 
 
 def test(img_lq, model, args, window_size):
